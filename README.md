@@ -38,8 +38,8 @@ balanceClassifier (project directory)
 
 #### Configuration:
 For further optimisation of model (only model parameters and user features): 
-1) Go to the models folder and for each model.py file, edit the model parameters after running the gridsearch optimisation on the notebook file. 
-2) In the data folder, edit the features.py file for each of the models' feature list after running the gridsearch optimisation on the notebook file.
+1) Go to the models folder and for each model.py file, edit the model parameters after running the gridsearch optimisation in the classification.ipynb file.
+2) In the data folder, edit the features.py file for each of the models' feature list after running the gridsearch optimisation in the classification.ipynb file.
 
 #### Steps to Replicate: 
 1) Run this command: pip install -r requirements.txt
