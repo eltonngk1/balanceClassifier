@@ -7,7 +7,14 @@ if __name__ == '__main__':
     growth_data = './data/user_features_l90_growth_20231111.csv'
     stable_data = './data/user_features_l90_stable_20231111.csv'
     x = BestModelSelector(train_data_path, test_data_path, growth_data, stable_data)
+
+    # customise which statistics and plot to visualise, indicate model (lowercase) & subset type
     x.calculate_pred_vs_benchmark('xgb', 'growth')
-    best_growth_model, best_growth_users, best_stable_model, best_stable_users = x.get_best_model()
-    print(f'The list of best growth users are: ', best_growth_users)
-    print(f'The list of best stable users are: ', best_stable_users)
+
+    best_growth_model_name, best_growth_users, best_stable_model_name, best_stable_users = x.get_best_model()
+    print(f'The best stable model is ..... {best_stable_model_name}')
+    print(f'The best growth model is ..... {best_growth_model_name}')
+
+    # exports user_ids
+    best_stable_users.to_csv('best_stable_users.csv', index=False)
+    best_growth_users.to_csv('best_stable_users.csv', index=False)

@@ -377,10 +377,14 @@ class BestModelSelector:
 
     def get_best_model(self):
         """
-        Returns the best growth model with evaluations, and best stable model with evaluations
+        Returns:
+             (str, pd.DataFrame, str, pd.DataFrame): Name of best growth model, df of best growth user_ids,
+                Name of best stable model, df of best stable model
         """
         best_growth_model = None
         best_stable_model = None
+        best_growth_model_name = ""
+        best_stable_model_name = ""
         best_growth = 0
         best_stability = 0
         # for growth/stable
@@ -398,13 +402,15 @@ class BestModelSelector:
                 if subset_type == 'growth' and growth_score > best_growth:
                     best_growth = growth_score
                     best_growth_model = model
+                    best_growth_model_name = model_name
                 if subset_type == 'stable' and stability_score > best_stability:
                     best_stability = stability_score
                     best_stable_model = model
+                    best_stable_model_name = model_name
 
-        best_growth_users = best_growth_model.filtered_pred['user_id'].to_list()
-        best_stable_users = best_stable_model.filtered_pred['user_id'].to_list()
-        return best_growth_model, best_growth_users, best_stable_model, best_stable_users
+        best_growth_users = best_growth_model.filtered_pred['user_id']
+        best_stable_users = best_stable_model.filtered_pred['user_id']
+        return best_growth_model_name, best_growth_users, best_stable_model_name, best_stable_users
 
 
 if __name__ == '__main__':
