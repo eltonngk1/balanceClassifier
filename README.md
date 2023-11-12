@@ -36,8 +36,8 @@ balanceClassifier (project directory)
 │   
 ```
 #### Roles
-CfModel - base class for a classification model
-BestModelSelector - supervisor class which instantiates the various classification models and handles plotting & comparison metrics
+- CfModel - base class for a classification model <br>
+- BestModelSelector - supervisor class which instantiates the various classification models and handles plotting & comparison metrics
 
 #### Configuration:
 For further optimisation of model (only model parameters and user features): 
