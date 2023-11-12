@@ -50,7 +50,7 @@ For further optimisation of model (only model parameters and user features):
 3) Run the feature_engineering.ipynb (read the user_subset_label.csv generated from step 2) to get the user features for the 90 days data for both stable (i.e. stable_feature.csv) and growth (i.e. growth_feature.csv)
 4) Add your train_data.csv*, test_data.csv*, stable_feature.csv (generated from step 3), growth_feature.csv (generated from step 3) into data folder
 5) Edit the main.py to change the file paths
-6) Run this command: python main.py
+6) Run this command: python main.py (alternatively, you can run the classification.ipynb to see and compare results from all the models)
 
 *accessable from the google drive link in our final report 
 
