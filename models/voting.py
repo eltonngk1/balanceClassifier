@@ -9,7 +9,8 @@ from sklearn.linear_model import LogisticRegression
 from scikeras.wrappers import KerasClassifier
 
 class Voting(CfModel):
-    """Create a Voting Ensemble model object
+    """
+    Create a Voting Ensemble model object
     """
 
     def __init__(self, l90d: pd.DataFrame, n180d: pd.DataFrame, growth_data: pd.DataFrame, stable_data: pd.DataFrame,
@@ -25,6 +26,7 @@ class Voting(CfModel):
         self.pred, self.true = self.get_subset_pred_true()
         self.filtered_pred = filter_predicted_growth_subset(self.pred) if self.subset_type == 'growth' else \
             filter_predicted_stable_subset(self.pred)
+        print('Voting Model has finished training')
 
     def train(self) -> (VotingClassifier, pd.DataFrame):
         voting_ensemble = VotingClassifier(estimators=[

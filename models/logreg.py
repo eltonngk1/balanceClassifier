@@ -6,7 +6,8 @@ import pandas as pd
 
 
 class LogReg(CfModel):
-    """Create a LogReg model object
+    """
+    Create a LogReg model object
     """
 
     def __init__(self, l90d: pd.DataFrame, n180d: pd.DataFrame, growth_data: pd.DataFrame, stable_data: pd.DataFrame,
@@ -17,7 +18,7 @@ class LogReg(CfModel):
         self.pred, self.true = self.get_subset_pred_true()
         self.filtered_pred = filter_predicted_growth_subset(self.pred) if self.subset_type == 'growth' else \
             filter_predicted_stable_subset(self.pred)
-
+        print('Log Reg Model has finished training')
     def train(self) -> (LogisticRegression, pd.DataFrame):
         parameters = {
             "C": [0.01],

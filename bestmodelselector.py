@@ -7,6 +7,7 @@ from cfmodel import CfModel
 from utils import generate_features
 import numpy as np
 
+
 class BestModelSelector:
     '''
      A class that supervises the prediction of a user's predicted label (Subset/Growth)
@@ -16,20 +17,21 @@ class BestModelSelector:
      '''
 
     def __init__(self, l90d: str, n180d: str, growth_data: str, stable_data: str):
-        """Create a CfModel object
+        """
+        Create a CfModel object
 
         Args:
-            l90d (str): Name of csv file containing users' daily bank balances for the first 90 days. 
-                        The csv file should have 3 columns: 'pt_date' (data date), 'user_id' (unique identifier of user), 
+            l90d (str): Name of csv file containing users' daily bank balances for the first 90 days.
+                        The csv file should have 3 columns: 'pt_date' (data date), 'user_id' (unique identifier of user),
                         'total_balance' (user's account balance on a given date).
 
-            n180d (str): Name of csv file containing users' daily bank balances for the next 180 days. 
+            n180d (str): Name of csv file containing users' daily bank balances for the next 180 days.
                         The format of this file should be similar to the 'l90d' file.
-                        
-            growth_data (str): Name of csv file with 'user_id' as index, containing each user's 'label' (growth vs. non-growth) 
+
+            growth_data (str): Name of csv file with 'user_id' as index, containing each user's 'label' (growth vs. non-growth)
                                 and user-level features generated from the first 90 days of data.
 
-            stable_data (str): Name of csv file with 'user_id' as index, containing each user's 'label' (stable vs. non-stable) 
+            stable_data (str): Name of csv file with 'user_id' as index, containing each user's 'label' (stable vs. non-stable)
                                 and user-level features generated from the first 90 days of data.
 
         """
@@ -45,6 +47,13 @@ class BestModelSelector:
         self.growth_data = pd.read_csv(growth_data)
         self.stable_data = pd.read_csv(stable_data)
         self.generate_models()
+
+        self.model_map = {
+            'stable': {'xgb': self.xgb_stable, 'lgbm': self.lgbm_stable, 'logreg': self.logreg_stable,
+                       'mlp': self.mlp_stable, 'voting': self.voting_stable, 'stacking': self.stacking_stable},
+            'growth': {'xgb': self.xgb_growth, 'lgbm': self.lgbm_growth, 'logreg': self.logreg_growth,
+                       'mlp': self.mlp_growth, 'voting': self.voting_growth, 'stacking': self.stacking_growth},
+        }
 
     def get_baseline(self) -> (Union[int, float], Union[int, float]):
         """
@@ -98,7 +107,9 @@ class BestModelSelector:
         # sum of final_weight = 1
         # use weight to generate weighted stability
         if 'final_weight' not in df.columns:
-            df['final_weight'] = df['weight'] / df['weight'].sum()
+            df_copy = df.copy()
+            df_copy['final_weight'] = df_copy['weight'] / df_copy['weight'].sum()
+            df = df_copy
 
         result = df[['user_id', 'final_weight']].merge(result[['user_id', 'stability_index']], on='user_id', how='left')
         result['weighted_stability'] = result['final_weight'] * result['stability_index']
@@ -110,31 +121,30 @@ class BestModelSelector:
         """
         Generates the growth & stable benchmark subsets along with the growth rates and stability indexes
         """
-        growth_cf_model = CfModel(self.l90d, self.n180d, self.growth_data, self.stable_data, ['total_balance'],
+        growth_cf_model = CfModel(self.l90d, self.n180d, self.growth_data, self.stable_data, ['trend'],
                                   'growth')
-        print('test')
-        print(growth_cf_model.test_users)
-        test_users = growth_cf_model.test_users
         growth_benchmark = self.growth_data.sort_values(by=['growth_coeff'], ascending=False)
         growth_benchmark = growth_benchmark[growth_benchmark['user_id'].isin(growth_cf_model.test_users)]
-        growth_benchmark_growth, growth_benchmark_stability_index = self._get_subset_benchmark(growth_benchmark)
+        growth_benchmark_subset, growth_benchmark_growth, growth_benchmark_stability_index = self._get_subset_benchmark(
+            growth_benchmark)
 
-        stable_cf_model = CfModel(self.l90d, self.n180d, self.growth_data, self.stable_data, ['total_balance'],
+        stable_cf_model = CfModel(self.l90d, self.n180d, self.growth_data, self.stable_data, ['trend'],
                                   'stable')
         stable_benchmark = self.stable_data.sort_values(by=['stability_index'], ascending=False)
         stable_benchmark = stable_benchmark[stable_benchmark['user_id'].isin(stable_cf_model.test_users)]
-        stable_benchmark_growth, stable_benchmark_stability_index = self._get_subset_benchmark(stable_benchmark)
+        stable_benchmark_subset, stable_benchmark_growth, stable_benchmark_stability_index = self._get_subset_benchmark(
+            stable_benchmark)
 
-        return (growth_benchmark, stable_benchmark, growth_benchmark_growth, growth_benchmark_stability_index,
-                stable_benchmark_growth, stable_benchmark_stability_index)
+        return (growth_benchmark_subset, stable_benchmark_subset, growth_benchmark_growth,
+                growth_benchmark_stability_index, stable_benchmark_growth, stable_benchmark_stability_index)
 
-    def _get_subset_benchmark(self, subset: pd.DataFrame) -> (Union[int, float], Union[int, float]):
+    def _get_subset_benchmark(self, subset: pd.DataFrame) -> (pd.DataFrame, Union[int, float], Union[int, float]):
         """
         Helper function for calculating subset statistics i.e, growth rate and stability index
         Args:
             subset (pd.DataFrame): df for a subset
         Returns:
-            (Union[int, float], Union[int, float]): growth rate along with the stability index
+            (pd.DataFrame, Union[int, float], Union[int, float]): df, growth rate along with the stability index
         """
         df = generate_features(self.n180d)
         subset['weight'] = subset['avg_balance'] / subset['avg_balance'].sum()
@@ -146,7 +156,7 @@ class BestModelSelector:
         last_day_balance = final_df['last_day_balance'].sum()
         growth_rate = ((last_day_balance - first_day_balance) / first_day_balance) * 100
         stability_index = self.get_weighted_stability(final_df)
-        return growth_rate, stability_index
+        return final_df, growth_rate, stability_index
 
     def get_ideal(self) -> (
             pd.DataFrame, pd.DataFrame, Union[int, float], Union[int, float], Union[int, float], Union[int, float]):
@@ -155,34 +165,35 @@ class BestModelSelector:
         """
         growth_ideal = self.growth_data[self.growth_data['label'] == 1]
         stable_ideal = self.stable_data[self.stable_data['label'] == 1]
-        stable_ideal_growth, stable_ideal_stability_index = self._get_subset_ideal(stable_ideal)
-        growth_ideal_growth, growth_ideal_stability_index = self._get_subset_ideal(growth_ideal)
+        stable_ideal_subset, stable_ideal_growth, stable_ideal_stability_index = self._get_subset_ideal(stable_ideal)
+        growth_ideal_subset, growth_ideal_growth, growth_ideal_stability_index = self._get_subset_ideal(growth_ideal)
 
-        return (growth_ideal, stable_ideal, growth_ideal_growth, growth_ideal_stability_index,
+        return (growth_ideal_subset, stable_ideal_subset, growth_ideal_growth, growth_ideal_stability_index,
                 stable_ideal_growth, stable_ideal_stability_index)
 
-    def _get_subset_ideal(self, ideal: pd.DataFrame) -> (Union[int, float], Union[int, float]):
+    def _get_subset_ideal(self, ideal: pd.DataFrame) -> (pd.DataFrame, Union[int, float], Union[int, float]):
         """
         Calculates the ideal growth rate and the ideal stability index
         Args:
             ideal (pd.DataFrame): df for filtered ideal subset on 180 days
 
         Returns:
-            (Union[int, float], Union[int, float]): growth rate along with the stability index
+            (pd.DataFrame, Union[int, float], Union[int, float]): growth rate along with the stability index
         """
         n180d = generate_features(self.n180d)
         ideal_subset = n180d[n180d['user_id'].isin(ideal['user_id'])]
         first_day_balance = ideal_subset['first_day_balance'].sum()
         last_day_balance = ideal_subset['last_day_balance'].sum()
-        ideal_growth = ((last_day_balance - first_day_balance) / first_day_balance) * 100
+        ideal_metric = ((last_day_balance - first_day_balance) / first_day_balance) * 100
 
-        return ideal_growth, self.get_weighted_stability(ideal_subset)
+        return ideal_subset, ideal_metric, self.get_weighted_stability(ideal_subset)
 
-    def get_plotting_df(self, subset_pred, subset_benchmark):
+    def get_plotting_df(self, subset_pred: pd.DataFrame, subset_benchmark: pd.DataFrame) -> \
+            (pd.DataFrame, pd.DataFrame):
         """
             This function takes in 2 user-level dataframes of actual & predicted subset respectively.
             It filters for the subset users' daily bank balance data across 270 days, from that of the full set of users.
-            The function then aggregates the daily balances of these subset users to create a time series 
+            The function then aggregates the daily balances of these subset users to create a time series
             representing the total daily balance data of the subset across 270 days.
 
         Args:
@@ -192,7 +203,6 @@ class BestModelSelector:
         Returns:
             pd.DataFrame, pd.DataFrame: 2 dataframes in time series format (pt_date & total_balance)
         """
-
         subset_pred_users = subset_pred.user_id.tolist()
         subset_benchmark_users = subset_benchmark.user_id.tolist()
 
@@ -222,8 +232,8 @@ class BestModelSelector:
                                  subset_pred, subset_benchmark,
                                  subset_type):
         """
-           This function plots the balance time series of the predicted subset against the actual subset across 270 days
-           Prints the metrics across the predicted subset and all the benchmarks
+        This function plots the balance time series of the predicted subset against the actual subset across 270 days
+        Prints the metrics across the predicted subset and all the benchmarks
         Args:
             subset_pred_270 (pd.DataFrame): time series df for all users
             subset_benchmark_270 (pd.DataFrame): time series df for all users
@@ -235,20 +245,29 @@ class BestModelSelector:
         self._plot_time_series(subset_pred_270, subset_benchmark_270, subset_type)
         self.print_comparison_metrics(subset_pred_270, subset_pred, subset_benchmark, subset_type)
 
+    def get_growth_and_stability(self, subset_pred_270: pd.DataFrame, subset_pred: pd.DataFrame) -> (
+            Union[int, float], Union[int, float]):
+        growth_pred_n180 = (subset_pred_270.iloc[-1]['total_balance'] - subset_pred_270.iloc[90]['total_balance']) / \
+                           subset_pred_270.iloc[90]['total_balance']
+        weighted_stability_pred_n180 = self.get_weighted_stability(subset_pred)
+        return growth_pred_n180, weighted_stability_pred_n180
+
     @staticmethod
     def print_metrics(weight, num_users, growth_rate, stability_index):
         print(f"Weight: ", round(weight, 5))
         print(f"No. of users: ", num_users)
 
-        print(f"Growth rate: ", round(growth_rate * 100, 3), "%")
+        print(f"Growth rate: ", round(growth_rate, 3), "%")
         print(f"Stability index: ", round(stability_index, 5))
 
     def print_comparison_metrics(self, subset_pred_270,
                                  subset_pred, subset_benchmark,
                                  subset_type):
-        # handle data for data reporting
+        """
+        Handles calculation of evaluation metrics
+        """
         num_users_pred = len(subset_pred.user_id.tolist())
-        num_users_baseline = len(self.n180d)
+        num_users_baseline = self.n180d['user_id'].nunique()
         num_users_benchmark = len(subset_benchmark)
         if subset_type == 'growth':
             num_users_ideal = len(self.growth_data[self.growth_data['label'] == 1])
@@ -261,6 +280,7 @@ class BestModelSelector:
 
         growth_ideal_subset, stable_ideal_subset, growth_ideal_growth, growth_ideal_stability_index, \
             stable_ideal_growth, stable_ideal_stability_index = self.get_ideal()
+
         baseline_growth, baseline_stability = self.get_baseline()
         growth_benchmark, stable_benchmark, growth_benchmark_growth, growth_benchmark_stability_index, \
             stable_benchmark_growth, stable_benchmark_stability_index = self.get_benchmark()
@@ -271,9 +291,7 @@ class BestModelSelector:
             weight_ideal = stable_ideal_subset['weight'].sum()
 
         # Next 180 days metrics
-        growth_pred_n180 = (subset_pred_270.iloc[-1]['total_balance'] - subset_pred_270.iloc[90]['total_balance']) / \
-                           subset_pred_270.iloc[90]['total_balance']
-        weighted_stability_pred_n180 = self.get_weighted_stability(subset_pred)
+        growth_pred_n180, weighted_stability_pred_n180 = self.get_growth_and_stability(subset_pred_270, subset_pred)
 
         # Predicted subset
         print(f"Predicted {subset_type} subset (based on last 90 days data):")
@@ -303,63 +321,100 @@ class BestModelSelector:
 
     def generate_models(self):
         self.xgb_growth = XGB(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                              features_dct['xgb_features_lst_growth'], 'growth').model
+                              features_dct['xgb_features_lst_growth'], 'growth')
         self.xgb_stable = XGB(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                              features_dct['xgb_features_lst_stable'], 'stable').model
+                              features_dct['xgb_features_lst_stable'], 'stable')
 
         self.lgbm_growth = LGBM(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                features_dct['lgbm_features_lst_growth'], 'growth').model
+                                features_dct['lgbm_features_lst_growth'], 'growth')
         self.lgbm_stable = LGBM(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                features_dct['lgbm_features_lst_stable'], 'stable').model
+                                features_dct['lgbm_features_lst_stable'], 'stable')
 
         self.logreg_growth = LogReg(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                    features_dct['logreg_features_lst_growth'], 'growth').model
+                                    features_dct['logreg_features_lst_growth'], 'growth')
         self.logreg_stable = LogReg(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                    features_dct['logreg_features_lst_stable'], 'stable').model
+                                    features_dct['logreg_features_lst_stable'], 'stable')
 
         self.mlp_growth = MLP(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                              features_dct['mlp_features_lst_growth'], 'growth').model
+                              features_dct['mlp_features_lst_growth'], 'growth')
         self.mlp_stable = MLP(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                              features_dct['mlp_features_lst_stable'], 'stable').model
+                              features_dct['mlp_features_lst_stable'], 'stable')
 
         self.voting_growth = Voting(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                    features_dct['features_lst_growth'], 'growth', xgb=self.xgb_growth,
-                                    lgbm=self.lgbm_growth,
-                                    logreg=self.logreg_growth, mlp=self.mlp_growth).model
+                                    features_dct['features_lst_growth'], 'growth', xgb=self.xgb_growth.model,
+                                    lgbm=self.lgbm_growth.model,
+                                    logreg=self.logreg_growth.model, mlp=self.mlp_growth.model)
         self.voting_stable = Voting(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                    features_dct['features_lst_stable'], 'stable', xgb=self.xgb_stable,
-                                    lgbm=self.lgbm_stable,
-                                    logreg=self.logreg_stable, mlp=self.mlp_stable).model
+                                    features_dct['features_lst_stable'], 'stable', xgb=self.xgb_stable.model,
+                                    lgbm=self.lgbm_stable.model,
+                                    logreg=self.logreg_stable.model, mlp=self.mlp_stable.model)
 
         self.stacking_growth = Stacking(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                        features_dct['features_lst_growth'], 'growth', xgb=self.xgb_growth,
-                                        lgbm=self.lgbm_growth,
-                                        logreg=self.logreg_growth).model
+                                        features_dct['features_lst_growth'], 'growth', xgb=self.xgb_growth.model,
+                                        lgbm=self.lgbm_growth.model,
+                                        logreg=self.logreg_growth.model)
         self.stacking_stable = Stacking(self.l90d, self.n180d, self.growth_data, self.stable_data,
-                                        features_dct['features_lst_stable'], 'stable', xgb=self.xgb_stable,
-                                        lgbm=self.lgbm_stable,
-                                        logreg=self.logreg_stable).model
+                                        features_dct['features_lst_stable'], 'stable', xgb=self.xgb_stable.model,
+                                        lgbm=self.lgbm_stable.model,
+                                        logreg=self.logreg_stable.model)
 
-    def plot(self, model_name: str, subset_type: str):
-        model_map = {
-            'stable': {'xgb': self.xgb_stable, 'lgbm': self.lgbm_stable, 'logreg': self.logreg_stable,
-                       'mlp': self.mlp_stable, 'voting': self.voting_stable, 'stacking': self.stacking_stable},
-            'growth': {'xgb': self.xgb_growth, 'lgbm': self.lgbm_growth, 'logreg': self.logreg_growth,
-                       'mlp': self.mlp_growth, 'voting': self.voting_growth, 'stacking': self.stacking_growth},
-        }
-        model = model_map[subset_type][model_name]
+    def calculate_pred_vs_benchmark(self, model_name: str, subset_type: str):
+        """
+        Args:
+            model_name (str): name of the model: 'xgb', 'lgbm', 'logreg', 'mlp', 'voting', 'stacking'
+            subset_type (str): either 'growth' or 'stable'
+        Returns:
+            best growth model with evaluations, and best stable model with evaluations
+        """
+        model_map = self.model_map
+        model = model_map[subset_type][model_name.lower()]
         growth_benchmark, stable_benchmark, growth_benchmark_growth, growth_benchmark_stability_index, \
             stable_benchmark_growth, stable_benchmark_stability_index = self.get_benchmark()
         benchmark_subset = growth_benchmark if subset_type == 'growth' else stable_benchmark
+
         pred_270_final, benchmark_270 = self.get_plotting_df(model.filtered_pred, benchmark_subset)
         self.plot_pred_against_actual(pred_270_final, benchmark_270, model.filtered_pred, benchmark_subset, subset_type)
 
+    def get_best_model(self):
+        """
+        Returns the best growth model with evaluations, and best stable model with evaluations
+        """
+        best_growth_model = None
+        best_stable_model = None
+        best_growth = 0
+        best_stability = 0
+        # for growth/stable
+        for subset_type in self.model_map:
+            # identify the model
+            for model_name in self.model_map[subset_type]:
+                model = self.model_map[subset_type][model_name]
+                growth_benchmark, stable_benchmark, growth_benchmark_growth, growth_benchmark_stability_index, \
+                    stable_benchmark_growth, stable_benchmark_stability_index = self.get_benchmark()
+                benchmark_subset = growth_benchmark if subset_type == 'growth' else stable_benchmark
+                # get predicted df to generate scores
+                pred_270_final = self.get_plotting_df(model.filtered_pred, benchmark_subset)[0]
+                growth_score, stability_score = self.get_growth_and_stability(pred_270_final, model.filtered_pred)
+                # update best scores
+                if subset_type == 'growth' and growth_score > best_growth:
+                    best_growth = growth_score
+                    best_growth_model = model
+                if subset_type == 'stable' and stability_score > best_stability:
+                    best_stability = stability_score
+                    best_stable_model = model
 
-    # Press the green button in the gutter to run the script.
+        best_growth_users = best_growth_model.filtered_pred['user_id'].to_list()
+        best_stable_users = best_stable_model.filtered_pred['user_id'].to_list()
+        return best_growth_model, best_growth_users, best_stable_model, best_stable_users
+
+
 if __name__ == '__main__':
     train_data_path = './data/train_data_l90d_daily_balance.csv'
     test_data_path = './data/train_data_n180d_daily_balance.csv'
     growth_data = './data/user_features_l90_growth_20231111.csv'
     stable_data = './data/user_features_l90_stable_20231111.csv'
     x = BestModelSelector(train_data_path, test_data_path, growth_data, stable_data)
-    x.plot('xgb', 'growth')
+    x.calculate_pred_vs_benchmark('xgb', 'growth')
+    best_growth_model, best_growth_users, best_stable_model, best_stable_users = x.get_best_model()
+    print(f'The list of best growth users are: ', best_growth_users)
+    print(f'The list of best stable users are: ', best_stable_users)
+

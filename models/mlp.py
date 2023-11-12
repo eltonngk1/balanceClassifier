@@ -4,7 +4,8 @@ from utils import *
 
 
 class MLP(CfModel):
-    """Create a MLP model object
+    """
+    Create a MLP model object
     """
 
     def __init__(self, l90d: pd.DataFrame, n180d: pd.DataFrame, growth_data: pd.DataFrame, stable_data: pd.DataFrame,
@@ -15,6 +16,8 @@ class MLP(CfModel):
         self.pred, self.true = self.get_subset_pred_true()
         self.filtered_pred = filter_predicted_growth_subset(self.pred) if self.subset_type == 'growth' else \
             filter_predicted_stable_subset(self.pred)
+
+        print('MLP Model has finished training')
 
     def find_best_params(self):
         params_simple_nn = {
@@ -59,6 +62,6 @@ class MLP(CfModel):
 
         nn = KerasClassifier(build_fn=nn_cl_fun, epochs=epochs, batch_size=batch_size,
                              verbose=0)
-        nn.fit(self.X_train, self.y_train, validation_data=(self.X_test, self.y_test), verbose=1)
+        nn.fit(self.X_train, self.y_train, validation_data=(self.X_test, self.y_test), verbose=0)
         y_pred = nn.predict(self.X_test)
         return nn, y_pred

@@ -1,7 +1,9 @@
+import pandas as pd
 from imblearn.over_sampling import SMOTE
 from typing import List, Union
 from utils import *
 from sklearn.model_selection import train_test_split
+
 
 class CfModel:
     """
@@ -79,9 +81,15 @@ class CfModel:
         print(metrics_df)
         return metrics_df
 
-    def get_results_df(self, user_features):
+    def get_results_df(self, user_features: pd.DataFrame) -> pd.DataFrame:
         """
+        Adds user features to the test set of users
 
+        Args:
+            user_features (pd.DataFrame): Df containing user features
+
+        Returns:
+            pd.DataFrame: df with user labels, features and weight
         """
         results_df = pd.DataFrame({
             'user_id': self.test_users,
@@ -95,21 +103,27 @@ class CfModel:
         results_df['weight'] = results_df['avg_balance'] / np.sum(results_df['avg_balance'])
         return results_df
 
-    def get_subset_pred_true(self):
-        # TODO: Add docstring
+    def get_subset_pred_true(self) -> (pd.DataFrame, pd.DataFrame):
+        """
+        Returns two separate predicted and true subsets
+        """
         results_df = self.get_results_df(self.data)
         # Predicted subset
         subset_pred = results_df[results_df['predicted_label'] == 1].copy()
-
-        # calculate weight relative to subset & obtain weighted stability
-        subset_pred['subset_weight'] = subset_pred['avg_balance'] / subset_pred['avg_balance'].sum()
-        subset_pred['weighted_stability'] = subset_pred['subset_weight'] * subset_pred['stability_index']
+        subset_pred = self._get_subset_pred_true(subset_pred)
 
         # Actual subset
         subset_true = results_df[results_df['true_label'] == 1].copy()
-
-        # calculate weight relative to subset & obtain weighted stability
-        subset_true['subset_weight'] = subset_true['avg_balance'] / subset_true['avg_balance'].sum()
-        subset_true['weighted_stability'] = subset_true['subset_weight'] * subset_true['stability_index']
+        subset_true = self._get_subset_pred_true(subset_true)
 
         return subset_pred, subset_true
+
+    @staticmethod
+    def _get_subset_pred_true(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculate weight relative to subset & obtain weighted stability
+        """
+        df['subset_weight'] = df['avg_balance'] / df['avg_balance'].sum()
+        df['weighted_stability'] = df['subset_weight'] * df['stability_index']
+
+        return df

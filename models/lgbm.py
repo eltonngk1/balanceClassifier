@@ -17,6 +17,7 @@ class LGBM(CfModel):
         self.filtered_pred = filter_predicted_growth_subset(self.pred) if self.subset_type == 'growth' else \
             filter_predicted_stable_subset(self.pred)
 
+        print('LGBM Model has finished training')
     def train(self) -> (LGBMClassifier, pd.DataFrame):
         parameters = {
             "max_depth": [10],
@@ -28,7 +29,7 @@ class LGBM(CfModel):
         model = LGBMClassifier(
             random_state=0,
         )
-        model.set_params(verbose=-1)
+        model.set_params(verbose=0)
         model, y_pred = grid_search(parameters, model, self.X_train, self.y_train, self.X_test)
         return model, y_pred
 

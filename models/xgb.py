@@ -7,7 +7,8 @@ import pandas as pd
 
 
 class XGB(CfModel):
-    """Create a XGB model object
+    """
+    Create a XGB model object
     """
 
     def __init__(self, l90d: pd.DataFrame, n180d: pd.DataFrame, growth_data: pd.DataFrame, stable_data: pd.DataFrame,
@@ -18,6 +19,8 @@ class XGB(CfModel):
         self.pred, self.true = self.get_subset_pred_true()
         self.filtered_pred = filter_predicted_growth_subset(self.pred) if self.subset_type == 'growth' else \
             filter_predicted_stable_subset(self.pred)
+
+        print('XGB Model has finished training')
 
     def train(self) -> (XGBClassifier, pd.DataFrame):
         parameters = {
@@ -32,4 +35,5 @@ class XGB(CfModel):
         )
 
         model, y_pred = grid_search(parameters, model, self.X_train, self.y_train, self.X_test)
+
         return model, y_pred

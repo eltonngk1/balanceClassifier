@@ -9,7 +9,8 @@ from sklearn.ensemble import StackingClassifier
 
 
 class Stacking(CfModel):
-    """Create a Stacking Ensemble model object
+    """
+    Create a Stacking Ensemble model object
     """
 
     def __init__(self, l90d: pd.DataFrame, n180d: pd.DataFrame, growth_data: pd.DataFrame, stable_data: pd.DataFrame,
@@ -25,6 +26,8 @@ class Stacking(CfModel):
         self.pred, self.true = self.get_subset_pred_true()
         self.filtered_pred = filter_predicted_growth_subset(self.pred) if self.subset_type == 'growth' else \
             filter_predicted_stable_subset(self.pred)
+
+        print('Stacking Model has finished training')
 
     def train(self) -> (StackingClassifier, pd.DataFrame):
         stacking_clf = StackingClassifier(
