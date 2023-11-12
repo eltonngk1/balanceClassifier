@@ -47,8 +47,12 @@ For further optimisation of model (only model parameters and user features):
 4) Run this command: python main.py
 
 #### Expected Outcome: 
-Best Model for growth subset: model | growth rate | stability index
-Best Model for stable subset:  model | growth rate | stability index
+Best Model for growth subset: model | growth rate | stability index <br>
+[list of user_id] <br>
+
+Best Model for stable subset:  model | growth rate | stability index <br> 
+[list of user_id] <br>
+
 
 
 
