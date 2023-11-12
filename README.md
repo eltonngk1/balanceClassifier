@@ -13,6 +13,7 @@ balanceClassifier (project directory)
 |   bestmodelselector.py
 |   cfmodel.py
 |   requirements.text
+|   classification.ipynb
 └───data
 │   │   features.py
 │   │   train_data.csv
