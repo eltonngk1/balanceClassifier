@@ -19,10 +19,19 @@ class BestModelSelector:
         """Create a CfModel object
 
         Args:
-            l90d (str): Name of csv file for last 90 days training data.
-            n180d (str): Name of csv file for next 180 days test data.
-            growth_data (str): Name of csv file for growth data with growth labels
-            stable_data (str): Name of csv file for stable data with growth labels
+            l90d (str): Name of csv file containing users' daily bank balances for the first 90 days. 
+                        The csv file should have 3 columns: 'pt_date' (data date), 'user_id' (unique identifier of user), 
+                        'total_balance' (user's account balance on a given date).
+
+            n180d (str): Name of csv file containing users' daily bank balances for the next 180 days. 
+                        The format of this file should be similar to the 'l90d' file.
+                        
+            growth_data (str): Name of csv file with 'user_id' as index, containing each user's 'label' (growth vs. non-growth) 
+                                and user-level features generated from the first 90 days of data.
+
+            stable_data (str): Name of csv file with 'user_id' as index, containing each user's 'label' (stable vs. non-stable) 
+                                and user-level features generated from the first 90 days of data.
+
         """
         self.end_90_days = '2023-03-01'
         self.xgb_growth = self.xgb_stable = self.mlp_stable = self.mlp_growth = None
@@ -40,6 +49,7 @@ class BestModelSelector:
     def get_baseline(self) -> (Union[int, float], Union[int, float]):
         """
         Calculates the baseline growth rate and the baseline stability index
+        The baseline metrics take into account all users in the dataset provided.
 
         Returns:
             (Union[int, float], Union[int, float]): growth rate along with the stability index
@@ -62,12 +72,19 @@ class BestModelSelector:
 
     def get_weighted_stability(self, df: pd.DataFrame) -> Union[int, float]:
         """
-        Calculates the sum of weighted stability for users in df
+        Calculates a subset's (df) stability with the following steps:
+        1)  Calculate each user's stability index and weight, relative to users in 'df'
+            The stabilty index of users will range from 0 to 1, and the sum of all user weights is 1.
+
+        2)  Calculated the weighted stability of each user in 'df' by multiplying their weight and stability index.
+
+        3)  The stability of the subset is obtained by summing the weighted stability of all users in 'df'.
+
         Args:
-            df (pd.DataFrame): df of a particular subset
+            df (pd.DataFrame): dataframe of a particular subset
 
         Returns:
-            Union[int, float]: sum of weighted stability for the users in df
+            Union[int, float]: stability index of subset i.e., sum of weighted stability for the users in df
         """
 
         # Calculate stability_index with next 180 days data
@@ -113,7 +130,7 @@ class BestModelSelector:
 
     def _get_subset_benchmark(self, subset: pd.DataFrame) -> (Union[int, float], Union[int, float]):
         """
-        Helper function for calculating subset statistics
+        Helper function for calculating subset statistics i.e, growth rate and stability index
         Args:
             subset (pd.DataFrame): df for a subset
         Returns:
@@ -146,7 +163,7 @@ class BestModelSelector:
 
     def _get_subset_ideal(self, ideal: pd.DataFrame) -> (Union[int, float], Union[int, float]):
         """
-        Calculates the baseline growth rate and the baseline stability index
+        Calculates the ideal growth rate and the ideal stability index
         Args:
             ideal (pd.DataFrame): df for filtered ideal subset on 180 days
 
@@ -163,8 +180,11 @@ class BestModelSelector:
 
     def get_plotting_df(self, subset_pred, subset_benchmark):
         """
-            This function takes in 2 user-level dataframes of actual & predicted subset respectively
-            Returns a time series format for all users in the subset for each day
+            This function takes in 2 user-level dataframes of actual & predicted subset respectively.
+            It filters for the subset users' daily bank balance data across 270 days, from that of the full set of users.
+            The function then aggregates the daily balances of these subset users to create a time series 
+            representing the total daily balance data of the subset across 270 days.
+
         Args:
             subset_pred (pd.DataFrame): df for users in predicted subset
             subset_benchmark (pd.DataFrame): df for users in true subset
@@ -202,13 +222,13 @@ class BestModelSelector:
                                  subset_pred, subset_benchmark,
                                  subset_type):
         """
-           This function plots the predicted subset against the actual subset
+           This function plots the balance time series of the predicted subset against the actual subset across 270 days
            Prints the metrics across the predicted subset and all the benchmarks
         Args:
             subset_pred_270 (pd.DataFrame): time series df for all users
             subset_benchmark_270 (pd.DataFrame): time series df for all users
             subset_pred (pd.DataFrame): df for users in predicted subset
-            subset_benchmark (pd.DataFrame): df for users in predicted subset
+            subset_benchmark (pd.DataFrame): df for users in benchmark subset
             subset_type (str): string indicating 'growth' or 'stable'
 
         """
